@@ -80,6 +80,7 @@
   .status{font-size:12px;font-weight:700}
   .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
   .actions{display:flex;gap:6px;flex-wrap:wrap}
+  .qtd-box{margin-top:10px}
   .obs-cell{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:100%}
   .obs-text{overflow-wrap:anywhere;word-break:break-word}
   td button.copy-btn{padding:5px 10px;min-height:32px;font-size:12px}
@@ -279,9 +280,9 @@
         <div><label for="pCategoria">Categoria</label><select id="pCategoria" required></select></div>
       </div>
       <div class="row">
-        <div><label for="pRec">Recorrência</label><select id="pRec"><option value="1">Única</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option><option value="36">36 meses</option><option value="custom">Personalizada</option></select></div>
-        <div><label for="pQtd">Quantidade personalizada</label><input id="pQtd" type="number" min="1" value="1"></div>
-        <div><label for="pObs">Pix ou observação (opcional)</label><input id="pObs" placeholder="Chave Pix, código de barras, anotação..."></div><div style="align-self:end"><button class="primary">Salvar compromisso</button></div>
+        <div><label for="pRec">Recorrência</label><select id="pRec"><option value="1">Única</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option><option value="36">36 meses</option><option value="custom">Outros (digitar)</option></select><div class="qtd-box" id="pQtdBox" hidden><label for="pQtd">Quantos meses?</label><input id="pQtd" type="number" min="1" max="1200" step="1" inputmode="numeric" placeholder="Ex.: 10"></div></div>
+        <div><label for="pObs">Pix ou observação (opcional)</label><input id="pObs" placeholder="Chave Pix, código de barras, anotação..."></div>
+        <div></div><div style="align-self:end"><button class="primary">Salvar compromisso</button></div>
       </div>
     </form>
   </div>
@@ -299,9 +300,9 @@
         <div><label for="rCategoria">Categoria</label><select id="rCategoria" required></select></div>
       </div>
       <div class="row">
-        <div><label for="rRec">Recorrência</label><select id="rRec"><option value="1">Única</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option><option value="36">36 meses</option><option value="custom">Personalizada</option></select></div>
-        <div><label for="rQtd">Quantidade personalizada</label><input id="rQtd" type="number" min="1" value="1"></div>
-        <div><label for="rObs">Pix ou observação (opcional)</label><input id="rObs" placeholder="Chave Pix, nome de quem paga, anotação..."></div><div style="align-self:end"><button class="primary">Salvar recebível</button></div>
+        <div><label for="rRec">Recorrência</label><select id="rRec"><option value="1">Única</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option><option value="36">36 meses</option><option value="custom">Outros (digitar)</option></select><div class="qtd-box" id="rQtdBox" hidden><label for="rQtd">Quantos meses?</label><input id="rQtd" type="number" min="1" max="1200" step="1" inputmode="numeric" placeholder="Ex.: 10"></div></div>
+        <div><label for="rObs">Pix ou observação (opcional)</label><input id="rObs" placeholder="Chave Pix, nome de quem paga, anotação..."></div>
+        <div></div><div style="align-self:end"><button class="primary">Salvar recebível</button></div>
       </div>
     </form>
   </div>
@@ -567,14 +568,17 @@ document.getElementById("formTransf").onsubmit=e=>{
  e.target.reset(); setFormDates(); save();
 };
 function saveRecurring(kind, date, desc, value, cat, rec, qtd, obs){
- const count=rec==="custom"?Math.max(1,Number(qtd)||1):Number(rec);
- if(!Number.isInteger(count)||count<1||count>1200)return uiAlert("Quantidade inválida (1 a 1200).");
+ const count=rec==="custom"?Number(qtd):Number(rec);
+ if(rec==="custom"&&!String(qtd).trim()){uiAlert("Em Recorrência, você escolheu \"Outros\". Digite quantos meses a conta vai se repetir.");return false}
+ if(!Number.isInteger(count)||count<1||count>1200){uiAlert("Digite uma quantidade de meses entre 1 e 1200, sem vírgula.");return false}
  const group=id();
  for(let i=0;i<count;i++) state[kind].push({id:id(),group,kind,data:addMonthsPreserveDay(date,i),descricao:desc,valor:Number(value),categoriaId:cat,obs:obs||"",baixas:[]});
- save();
+ save(); return true;
 }
-document.getElementById("formPagar").onsubmit=e=>{e.preventDefault();saveRecurring("pagar",pData.value,pDesc.value.trim(),pValor.value,pCategoria.value,pRec.value,pQtd.value,pObs.value.trim());e.target.reset();setFormDates()};
-document.getElementById("formReceber").onsubmit=e=>{e.preventDefault();saveRecurring("receber",rData.value,rDesc.value.trim(),rValor.value,rCategoria.value,rRec.value,rQtd.value,rObs.value.trim());e.target.reset();setFormDates()};
+function toggleQtd(k){const box=document.getElementById(k+"QtdBox"),on=document.getElementById(k+"Rec").value==="custom";box.hidden=!on;if(on)document.getElementById(k+"Qtd").focus()}
+["p","r"].forEach(k=>{document.getElementById(k+"Rec").addEventListener("change",()=>toggleQtd(k));document.getElementById(k==="p"?"formPagar":"formReceber").addEventListener("reset",()=>setTimeout(()=>toggleQtd(k),0))});
+document.getElementById("formPagar").onsubmit=e=>{e.preventDefault();if(saveRecurring("pagar",pData.value,pDesc.value.trim(),pValor.value,pCategoria.value,pRec.value,pQtd.value,pObs.value.trim())){e.target.reset();setFormDates()}};
+document.getElementById("formReceber").onsubmit=e=>{e.preventDefault();if(saveRecurring("receber",rData.value,rDesc.value.trim(),rValor.value,rCategoria.value,rRec.value,rQtd.value,rObs.value.trim())){e.target.reset();setFormDates()}};
 document.getElementById("formCategoria").onsubmit=e=>{
  e.preventDefault(); const name=catNome.value.trim(); if(!name)return;
  state.categorias.push({id:id(),nome:name,tipo:catTipo.value,padrao:false}); e.target.reset(); save();
