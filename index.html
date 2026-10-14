@@ -80,6 +80,9 @@
   .status{font-size:12px;font-weight:700}
   .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
   .actions{display:flex;gap:6px;flex-wrap:wrap}
+  .obs-cell{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:100%}
+  .obs-text{overflow-wrap:anywhere;word-break:break-word}
+  td button.copy-btn{padding:5px 10px;min-height:32px;font-size:12px}
   td button,.fatura button{background:#fff;border:1px solid #c9d6ce;color:var(--accent);border-radius:8px;padding:7px 10px;font-weight:700;font-size:13px;min-height:36px}
   td button.danger{border-color:#efb0aa;color:var(--bad)}
   .notice{background:#fff7e6;border:1px solid #f6d9a0;padding:14px 16px;border-radius:14px;margin-bottom:14px}
@@ -278,11 +281,11 @@
       <div class="row">
         <div><label for="pRec">Recorrência</label><select id="pRec"><option value="1">Única</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option><option value="36">36 meses</option><option value="custom">Personalizada</option></select></div>
         <div><label for="pQtd">Quantidade personalizada</label><input id="pQtd" type="number" min="1" value="1"></div>
-        <div></div><div style="align-self:end"><button class="primary">Salvar compromisso</button></div>
+        <div><label for="pObs">Pix ou observação (opcional)</label><input id="pObs" placeholder="Chave Pix, código de barras, anotação..."></div><div style="align-self:end"><button class="primary">Salvar compromisso</button></div>
       </div>
     </form>
   </div>
-  <div class="card table-wrap"><table><thead><tr><th>Vencimento</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Pago</th><th>Pendente</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbPagar"></tbody></table></div>
+  <div class="card table-wrap"><table><thead><tr><th>Vencimento</th><th>Descrição</th><th>Pix / Obs.</th><th>Categoria</th><th>Valor</th><th>Pago</th><th>Pendente</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbPagar"></tbody></table></div>
 </section>
 
 <section id="receber">
@@ -298,11 +301,11 @@
       <div class="row">
         <div><label for="rRec">Recorrência</label><select id="rRec"><option value="1">Única</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option><option value="36">36 meses</option><option value="custom">Personalizada</option></select></div>
         <div><label for="rQtd">Quantidade personalizada</label><input id="rQtd" type="number" min="1" value="1"></div>
-        <div></div><div style="align-self:end"><button class="primary">Salvar recebível</button></div>
+        <div><label for="rObs">Pix ou observação (opcional)</label><input id="rObs" placeholder="Chave Pix, nome de quem paga, anotação..."></div><div style="align-self:end"><button class="primary">Salvar recebível</button></div>
       </div>
     </form>
   </div>
-  <div class="card table-wrap"><table><thead><tr><th>Vencimento</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Recebido</th><th>Pendente</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbReceber"></tbody></table></div>
+  <div class="card table-wrap"><table><thead><tr><th>Vencimento</th><th>Descrição</th><th>Pix / Obs.</th><th>Categoria</th><th>Valor</th><th>Recebido</th><th>Pendente</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbReceber"></tbody></table></div>
 </section>
 
 <section id="cartoes">
@@ -563,15 +566,15 @@ document.getElementById("formTransf").onsubmit=e=>{
  state.transferencias.push({id:id(),data:tData.value,origem:tOrigem.value,destino:tDestino.value,valor:Number(tValor.value),descricao:tDesc.value.trim()});
  e.target.reset(); setFormDates(); save();
 };
-function saveRecurring(kind, date, desc, value, cat, rec, qtd){
+function saveRecurring(kind, date, desc, value, cat, rec, qtd, obs){
  const count=rec==="custom"?Math.max(1,Number(qtd)||1):Number(rec);
  if(!Number.isInteger(count)||count<1||count>1200)return uiAlert("Quantidade inválida (1 a 1200).");
  const group=id();
- for(let i=0;i<count;i++) state[kind].push({id:id(),group,kind,data:addMonthsPreserveDay(date,i),descricao:desc,valor:Number(value),categoriaId:cat,baixas:[]});
+ for(let i=0;i<count;i++) state[kind].push({id:id(),group,kind,data:addMonthsPreserveDay(date,i),descricao:desc,valor:Number(value),categoriaId:cat,obs:obs||"",baixas:[]});
  save();
 }
-document.getElementById("formPagar").onsubmit=e=>{e.preventDefault();saveRecurring("pagar",pData.value,pDesc.value.trim(),pValor.value,pCategoria.value,pRec.value,pQtd.value);e.target.reset();setFormDates()};
-document.getElementById("formReceber").onsubmit=e=>{e.preventDefault();saveRecurring("receber",rData.value,rDesc.value.trim(),rValor.value,rCategoria.value,rRec.value,rQtd.value);e.target.reset();setFormDates()};
+document.getElementById("formPagar").onsubmit=e=>{e.preventDefault();saveRecurring("pagar",pData.value,pDesc.value.trim(),pValor.value,pCategoria.value,pRec.value,pQtd.value,pObs.value.trim());e.target.reset();setFormDates()};
+document.getElementById("formReceber").onsubmit=e=>{e.preventDefault();saveRecurring("receber",rData.value,rDesc.value.trim(),rValor.value,rCategoria.value,rRec.value,rQtd.value,rObs.value.trim());e.target.reset();setFormDates()};
 document.getElementById("formCategoria").onsubmit=e=>{
  e.preventDefault(); const name=catNome.value.trim(); if(!name)return;
  state.categorias.push({id:id(),nome:name,tipo:catTipo.value,padrao:false}); e.target.reset(); save();
@@ -616,14 +619,15 @@ async function undoLast(kind,itemId){
 async function deleteItem(kind,itemId,scope){const arr=state[kind],item=arr.find(x=>x.id===itemId);if(!item)return;const targets=scope==='one'?[item]:arr.filter(x=>x.group===item.group&&x.data>=item.data);if(targets.some(x=>(x.baixas||[]).length))return uiAlert('A ocorrência selecionada ou uma ocorrência futura possui baixa. Desfaça as baixas antes de excluir; nenhuma ocorrência foi excluída.');if(!(await uiConfirm(targets.length>1?`Excluir esta ocorrência e as ${targets.length-1} seguintes?`:'Excluir esta ocorrência?',{title:'Excluir',okText:'Excluir',danger:true})))return;const ids=new Set(targets.map(x=>x.id));state[kind]=arr.filter(x=>!ids.has(x.id));save()}
 async function editItem(kind,itemId,scope){
  const arr=state[kind], item=arr.find(x=>x.id===itemId); if(!item)return;
- const r=await uiDialog({title:scope==="one"?"Editar esta ocorrência":"Editar esta e as próximas",okText:"Salvar",fields:[{key:"descricao",label:"Descrição",type:"text",value:item.descricao},{key:"valor",label:"Valor",type:"number",value:item.valor}]});
+ const r=await uiDialog({title:scope==="one"?"Editar esta ocorrência":"Editar esta e as próximas",okText:"Salvar",fields:[{key:"descricao",label:"Descrição",type:"text",value:item.descricao},{key:"valor",label:"Valor",type:"number",value:item.valor},{key:"obs",label:"Pix ou observação",type:"text",value:item.obs||""}]});
  if(!r)return; const desc=r.descricao;
  const raw=r.valor;if(!raw.trim())return uiAlert("Valor inválido.");const val=Number(raw);if(!validValue(val))return uiAlert("Valor inválido.");
  const targets=scope==="one"?[item]:arr.filter(x=>x.group===item.group&&x.data>=item.data);
  let skipped=0;
- targets.forEach(x=>{if(!(x.baixas||[]).length){x.descricao=desc;x.valor=val}else skipped++});
+ const obs=(r.obs||"").trim();
+ targets.forEach(x=>{x.obs=obs;if(!(x.baixas||[]).length){x.descricao=desc;x.valor=val}else skipped++});
  save();
- if(skipped)uiAlert(skipped===1?"1 ocorrência já tinha baixa e não foi alterada.":`${skipped} ocorrências já tinham baixa e não foram alteradas.`);
+ if(skipped)uiAlert(skipped===1?"1 ocorrência já tinha baixa: só o Pix/observação foi atualizado nela.":`${skipped} ocorrências já tinham baixa: só o Pix/observação foi atualizado nelas.`);
 }
 async function delLanc(idv){if(await uiConfirm("Excluir este lançamento?",{title:"Excluir",okText:"Excluir",danger:true})){state.lancamentos=state.lancamentos.filter(x=>x.id!==idv);save()}}
 async function editLanc(idv){const x=state.lancamentos.find(a=>a.id===idv);if(!x)return;const n=await editRecord(x,[['data','Data (AAAA-MM-DD):','date'],['tipo','Tipo (Entrada ou Saída):','type'],['descricao','Descrição:','text'],['valor','Valor:','number'],['categoriaId','Categoria:','categorias'],['contaId','Conta bancária:','contas'],['forma','Forma de pagamento:','optional']]);if(n)commitEdit(x,n)}
@@ -756,11 +760,17 @@ function renderNotices(){
  }
  lastBackupInfo.textContent=meta.lastBackup?`Último backup salvo neste aparelho em ${new Date(meta.lastBackup).toLocaleDateString("pt-BR")}.`:"Você ainda não salvou nenhum backup neste aparelho.";
 }
+function copyObs(btn,kind,itemId){
+ const item=state[kind].find(x=>x.id===itemId); if(!item||!item.obs)return;
+ const done=()=>{const t=btn.textContent;btn.textContent="Copiado!";setTimeout(()=>{btn.textContent=t},1500)};
+ const fallback=()=>{const ta=document.createElement("textarea");ta.value=item.obs;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,ta.value.length);let ok=false;try{ok=document.execCommand("copy")}catch(e){}ta.remove();ok?done():uiAlert(item.obs,"Copie o texto abaixo")};
+ if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(item.obs).then(done,fallback);else fallback();
+}
 function renderItems(kind,tbid){
  const m=selectedMonth(), cutoff=endISO(m);
  document.getElementById(tbid).innerHTML=state[kind].filter(x=>within(x.data,m)).sort((a,b)=>a.data.localeCompare(b.data)).map(x=>{
    const paid=itemPaidUntil(x,cutoff), pend=Math.max(0,Number(x.valor)-paid), status=itemStatus(x,cutoff);
-   return `<tr><td>${x.data}</td><td>${esc(x.descricao)}</td><td>${esc(catName(x.categoriaId))}</td><td>${money(x.valor)}</td><td>${money(paid)}</td><td>${money(pend)}</td><td>${status}</td><td class="actions">
+   return `<tr><td>${x.data}</td><td>${esc(x.descricao)}</td><td>${x.obs?`<span class="obs-cell"><span class="obs-text">${esc(x.obs)}</span><button type="button" class="copy-btn" onclick="copyObs(this,'${kind}','${x.id}')">Copiar</button></span>`:'<span class="muted">—</span>'}</td><td>${esc(catName(x.categoriaId))}</td><td>${money(x.valor)}</td><td>${money(paid)}</td><td>${money(pend)}</td><td>${status}</td><td class="actions">
    <button onclick="payItem('${kind}','${x.id}')">Baixa</button><button onclick="undoLast('${kind}','${x.id}')">Desfazer baixa</button>
    <button onclick="editItem('${kind}','${x.id}','one')">Editar esta</button><button onclick="editItem('${kind}','${x.id}','future')">Editar esta e futuras</button>
    <button class="danger" onclick="deleteItem('${kind}','${x.id}','one')">Excluir esta</button><button class="danger" onclick="deleteItem('${kind}','${x.id}','future')">Excluir esta e futuras</button></td></tr>`
