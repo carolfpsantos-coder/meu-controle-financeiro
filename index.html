@@ -81,6 +81,19 @@
   .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
   .actions{display:flex;gap:6px;flex-wrap:wrap}
   .qtd-box{margin-top:10px}
+  .due-pills{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+  .due-pills:empty{display:none}
+  .pill{border:none;border-radius:14px;padding:12px 14px;text-align:left;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-height:44px}
+  .pill span{font-size:13px;font-weight:700}.pill b{font-family:'Sora',sans-serif;font-size:19px}.pill small{font-size:12px}
+  .pill-late{background:#fde8e6;color:#8a1810}.pill-soon{background:#fff1d6;color:#6e4000}.pill-in{background:#e3f3ea;color:#0f5a36}
+  .due-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+  .due-row.is-late .due-info b{color:#8a1810}
+  .due-info{display:flex;flex-direction:column;gap:2px;min-width:0}.due-info b{overflow-wrap:anywhere}.due-info span{font-size:13px}
+  .due-right{display:flex;align-items:center;gap:10px;flex:0 0 auto}.due-right b{white-space:nowrap}
+  .due-right .pay-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-weight:800;min-height:40px}
+  .late-block{background:#fff6f5;border:1px solid #f5c9c4;border-radius:14px;padding:12px;margin-bottom:14px}
+  .late-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:#8a1810;margin-bottom:10px}
+  .item-card.is-late{border-color:#f5c9c4}
   .list-head{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
   .list-head:empty{display:none}
   .item-list{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
@@ -216,6 +229,11 @@
       <li id="step3"><span class="step-n">3</span><div><b>Salve seu primeiro backup</b><span class="muted">Guarde no Google Drive para nunca perder seus dados.</span></div><button class="secondary" type="button" id="welcomeBackup">Salvar</button></li>
     </ol>
   </div>
+  <div class="card" id="dueCard" hidden>
+    <h3>Contas a pagar e a receber</h3>
+    <div class="due-pills" id="duePills"></div>
+    <div id="dueList"></div>
+  </div>
   <div class="grid metrics">
     <div class="card"><div class="muted">Entradas no mês</div><div class="metric good" id="mEntradas">R$ 0,00</div></div>
     <div class="card"><div class="muted">Saídas no mês</div><div class="metric bad" id="mSaidas">R$ 0,00</div></div>
@@ -308,7 +326,7 @@
       </div>
     </form>
   </div>
-  <div class="card"><div class="list-head" id="sumPagar"></div><div id="tbPagar" class="item-list"></div></div>
+  <div class="card"><div class="list-head" id="sumPagar"></div><div id="tbPagar"></div></div>
 </section>
 
 <section id="receber">
@@ -328,7 +346,7 @@
       </div>
     </form>
   </div>
-  <div class="card"><div class="list-head" id="sumReceber"></div><div id="tbReceber" class="item-list"></div></div>
+  <div class="card"><div class="list-head" id="sumReceber"></div><div id="tbReceber"></div></div>
 </section>
 
 <section id="cartoes">
@@ -754,7 +772,7 @@ function renderAll(){
  mPagar.textContent=money(payMonth);mReceber.textContent=money(recMonth);mFaturas.textContent=money(fatPend);mProjetado.textContent=money(hist-payMonth+recMonth-fatPend);
  reportResumo.innerHTML=`<div class="summary"><div><span class="muted">Entradas</span><b class="good">${money(entries)}</b></div><div><span class="muted">Saídas</span><b class="bad">${money(exits)}</b></div><div><span class="muted">Resultado do mês</span><b>${money(entries-exits)}</b></div><div><span class="muted">Saldo fim do mês</span><b>${money(hist)}</b></div><div><span class="muted">Saldo projetado</span><b>${money(hist-payMonth+recMonth-fatPend)}</b></div></div>`;
  renderCategoryReport(m); renderEvolution(m);
- labelTables(); renderNotices();
+ labelTables(); renderNotices(); renderDue();
 }
 /* Rótulos para a versão em cartões no celular e mensagens de lista vazia (somente visual) */
 const EMPTY_MSG={tbLanc:"Nenhum lançamento neste mês.",tbTransf:"Nenhuma transferência neste mês.",tbContas:"Nenhuma conta bancária cadastrada ainda.",tbPagar:"Nada a pagar neste mês.",tbReceber:"Nada a receber neste mês.",tbCartoes:"Nenhum cartão cadastrado.",tbCompras:"Nenhuma parcela de cartão neste mês.",tbCategorias:"Nenhuma categoria.",tbCategoriasRel:"Nenhuma despesa neste mês.",tbEvolucao:"Ainda não há movimentações."};
@@ -794,20 +812,16 @@ function copyObs(btn,kind,itemId){
 }
 function fmtDate(iso){if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||""))return esc(iso||"");const [y,m,d]=iso.split("-");return `${d}/${m}/${y}`}
 function fmtMonth(ym){if(!/^\d{4}-\d{2}$/.test(ym||""))return esc(ym||"");const [y,m]=ym.split("-");return ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(m)-1]+"/"+y}
-function renderItems(kind,tbid){
- const m=selectedMonth(), cutoff=endISO(m), today=todayISO(), isPay=kind==="pagar";
- const items=state[kind].filter(x=>within(x.data,m)).sort((a,b)=>a.data.localeCompare(b.data));
- let tot=0,totPend=0;
- const html=items.map(x=>{
-   const paid=itemPaidUntil(x,cutoff), pend=Math.max(0,Number(x.valor)-paid), status=itemStatus(x,cutoff);
-   tot+=Number(x.valor); totPend+=pend;
-   const done=status==="Pago"||status==="Recebido", late=!done&&x.data<today;
-   const label=done?status:(late?(isPay?"Vencida":"Atrasado"):status);
-   const cls=done?"b-ok":(late?"b-late":(status==="Parcial"?"b-part":"b-pend"));
-   const grp=state[kind].filter(g=>g.group===x.group).sort((a,b)=>a.data.localeCompare(b.data));
-   const parc=grp.length>1?` · ${grp.findIndex(g=>g.id===x.id)+1}/${grp.length}`:"";
-   const hasBaixa=(x.baixas||[]).length>0;
-   return `<article class="item-card${done?" is-done":""}">
+function itemCard(kind,x,cutoff){
+ const today=todayISO(), isPay=kind==="pagar";
+ const paid=itemPaidUntil(x,cutoff), pend=Math.max(0,Number(x.valor)-paid), status=itemStatus(x,cutoff);
+ const done=status==="Pago"||status==="Recebido", late=!done&&x.data<today;
+ const label=done?status:(late?(isPay?"Vencida":"Atrasado"):status);
+ const cls=done?"b-ok":(late?"b-late":(status==="Parcial"?"b-part":"b-pend"));
+ const grp=state[kind].filter(g=>g.group===x.group).sort((a,b)=>a.data.localeCompare(b.data));
+ const parc=grp.length>1?` · ${grp.findIndex(g=>g.id===x.id)+1}/${grp.length}`:"";
+ const hasBaixa=(x.baixas||[]).length>0;
+ return {paid,pend,done,late,html:`<article class="item-card${done?" is-done":""}${late?" is-late":""}">
     <div class="ic-top"><div class="ic-title">${esc(x.descricao)}</div><div class="ic-value">${money(x.valor)}</div></div>
     <div class="ic-meta"><span class="badge ${cls}">${label}</span><span>${isPay?"Vence":"Recebe"} ${fmtDate(x.data)}</span><span class="muted">${esc(catName(x.categoriaId))}${parc}</span></div>
     ${paid>0&&!done?`<div class="ic-meta"><span>${isPay?"Pago":"Recebido"} ${money(paid)}</span><b>Falta ${money(pend)}</b></div>`:""}
@@ -822,10 +836,36 @@ function renderItems(kind,tbid){
       ${grp.length>1?`<button type="button" class="danger" onclick="deleteItem('${kind}','${x.id}','future')">Excluir esta e as próximas</button>`:""}
      </div></details>
     </div>
-   </article>`;
- }).join("");
- document.getElementById(tbid).innerHTML=html||`<p class="muted" style="text-align:center;padding:18px 0;margin:0">${isPay?"Nada a pagar":"Nada a receber"} em ${fmtMonth(m)}.</p>`;
+   </article>`};
+}
+function openPending(kind){const all="9999-12-31";return state[kind].map(x=>({x,pend:Math.max(0,Number(x.valor)-itemPaidUntil(x,all))})).filter(o=>o.pend>0.004)}
+function renderItems(kind,tbid){
+ const m=selectedMonth(), cutoff=endISO(m), today=todayISO(), isPay=kind==="pagar", first=m+"-01";
+ const items=state[kind].filter(x=>within(x.data,m)).sort((a,b)=>a.data.localeCompare(b.data));
+ const older=openPending(kind).filter(o=>o.x.data<first&&o.x.data<today).sort((a,b)=>a.x.data.localeCompare(b.x.data));
+ let tot=0,totPend=0;
+ const html=items.map(x=>{const c=itemCard(kind,x,cutoff);tot+=Number(x.valor);totPend+=c.pend;return c.html}).join("");
+ const olderHtml=older.length?`<div class="late-block"><div class="late-head"><b>${isPay?"Vencidas de meses anteriores":"Atrasados de meses anteriores"}</b><span>${older.length} · ${money(older.reduce((a,o)=>a+o.pend,0))}</span></div><div class="item-list">${older.map(o=>itemCard(kind,o.x,"9999-12-31").html).join("")}</div></div>`:"";
+ document.getElementById(tbid).innerHTML=olderHtml+(html?`<div class="item-list">${html}</div>`:`<p class="muted" style="text-align:center;padding:18px 0;margin:0">${isPay?"Nada a pagar":"Nada a receber"} em ${fmtMonth(m)}.</p>`);
  document.getElementById(isPay?"sumPagar":"sumReceber").innerHTML=items.length?`<h3 style="margin:0">${isPay?"Contas a pagar":"Contas a receber"} · ${fmtMonth(m)}</h3><div class="muted">Total ${money(tot)} · <b style="color:${totPend>0?(isPay?"var(--bad)":"var(--warn)"):"var(--good)"}">${totPend>0?(isPay?"Falta pagar ":"Falta receber ")+money(totPend):"Tudo em dia"}</b></div>`:"";
+}
+function renderDue(){
+ const today=todayISO(), lim=localISO(new Date(dateObj(today).getTime()+7*86400000));
+ const groups=[];
+ for(const kind of ["pagar","receber"]){
+  const open=openPending(kind), isPay=kind==="pagar";
+  const late=open.filter(o=>o.x.data<today).sort((a,b)=>a.x.data.localeCompare(b.x.data));
+  const soon=open.filter(o=>o.x.data>=today&&o.x.data<=lim).sort((a,b)=>a.x.data.localeCompare(b.x.data));
+  groups.push({kind,isPay,late,soon});
+ }
+ const any=groups.some(g=>g.late.length||g.soon.length);
+ dueCard.hidden=!any; if(!any)return;
+ const sum=a=>money(a.reduce((t,o)=>t+o.pend,0));
+ duePills.innerHTML=groups.map(g=>`${g.late.length?`<button type="button" class="pill pill-late" onclick="goTab('${g.kind}')"><span>${g.isPay?"Vencidas":"Atrasados (a receber)"}</span><b>${sum(g.late)}</b><small>${g.late.length} ${g.late.length===1?"conta":"contas"}</small></button>`:""}${g.soon.length?`<button type="button" class="pill ${g.isPay?"pill-soon":"pill-in"}" onclick="goTab('${g.kind}')"><span>${g.isPay?"A vencer em 7 dias":"A receber em 7 dias"}</span><b>${sum(g.soon)}</b><small>${g.soon.length} ${g.soon.length===1?"conta":"contas"}</small></button>`:""}`).join("");
+ const row=(g,o,late)=>{const d=o.x.data;const diff=Math.round((dateObj(d)-dateObj(today))/86400000);const when=late?`venceu ${fmtDate(d)} · há ${-diff} ${-diff===1?"dia":"dias"}`:(diff===0?"vence hoje":diff===1?"vence amanhã":`vence ${fmtDate(d)} · em ${diff} dias`);
+  return `<div class="due-row${late?" is-late":""}"><div class="due-info"><b>${esc(o.x.descricao)}</b><span class="${late?"bad":"muted"}">${g.isPay?"":"a receber · "}${when}</span></div><div class="due-right"><b>${money(o.pend)}</b><button type="button" class="pay-btn" onclick="payItem('${g.kind}','${o.x.id}')">${g.isPay?"Pagar":"Receber"}</button></div></div>`};
+ const rows=[];for(const g of groups){g.late.forEach(o=>rows.push(row(g,o,true)))}for(const g of groups){g.soon.forEach(o=>rows.push(row(g,o,false)))}
+ const MAX=8;dueList.innerHTML=rows.slice(0,MAX).join("")+(rows.length>MAX?`<p class="muted" style="margin:10px 0 0">E mais ${rows.length-MAX}. Veja tudo nas abas A pagar e A receber.</p>`:"");
 }
 function renderCategoryReport(m){
  const sums={};
